@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Montador de Grade e Previsão de Formatura - Arquivologia UNIRIO</title>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #eff6ff;
+            --secondary: #f97316;
+            --success: #10b981;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --gray-light: #f8fafc;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: #f1f5f9;
+            color: var(--dark);
+            margin: 0;
+            padding: 20px;
+            padding-bottom: 250px; /* Espaço ajustado para o painel de resumo estendido */
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            color: var(--primary);
+            margin: 0 0 8px 0;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #64748b;
+            font-size: 1.05rem;
+            margin: 0;
+        }
+
+        /* Barra de Controles e Configuração de Data */
+        .controls-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 25px;
+            background: #f8fafc;
+            padding: 15px 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .date-picker-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #ffffff;
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .date-picker-group label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--primary);
+        }
+
+        .date-picker-group select {
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            border: 1px solid var(--border);
+        }
+
+        .btn-clear {
+            background-color: var(--danger);
+            color: white;
+            border: none;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-clear:hover {
+            background-color: #dc2626;
+        }
+
+        /* Estrutura dos Períodos */
+        .period-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 25px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .period-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px 20px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .period-date-badge {
+            background-color: #3b82f6;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-left: 10px;
+            font-weight: 500;
+        }
+
+        .period-hours-badge {
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .period-body {
+            padding: 15px 20px;
+        }
+
+        /* Formulário de Seleção */
+        .select-box-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        select {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            background-color: #fff;
+            color: var(--dark);
+            outline: none;
+        }
+
+        select:focus {
+            border-color: var(--primary);
+        }
+
+        .btn-add {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-add:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* Quadro de Horários Semanal */
+        .week-grid {
+            display: grid;
+            grid-template-columns: repeat(1, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        @media (min-width: 640px) {
+            .week-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .week-grid {
+                grid-template-columns: repeat(6, 1fr);
+            }
+        }
+
+        .day-slot {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            min-height: 110px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .day-slot-extra {
+            background: #fff8f0;
+            border-color: #fed7aa;
+        }
+
+        .day-header {
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #475569;
+            border-bottom: 2px solid #cbd5e1;
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .day-slot-extra .day-header {
+            color: #c2410c;
+            border-bottom-color: #fdba74;
+        }
+
+        .empty-day-msg {
+            font-size: 0.72rem;
+            color: #cbd5e1;
+            text-align: center;
+            margin: auto 0;
+            font-style: italic;
+        }
+
+        /* Card de Disciplina dentro do Dia */
+        .day-course-card {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 4px;
+            margin-bottom: 6px;
+        }
+
+        .day-course-title {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--dark);
+            line-height: 1.2;
+        }
+
+        .day-course-meta {
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+
+        .day-course-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 4px;
+        }
+
+        .badge-cat {
+            display: inline-block;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            color: white;
+        }
+
+        .cat-Obrigatória { background-color: #2563eb; }
+        .cat-Optativa { background-color: #d97706; }
+        .cat-Estágio { background-color: #059669; }
+        .cat-TCC { background-color: #7c3aed; }
+
+        .btn-remove {
+            background: none;
+            border: none;
+            color: var(--danger);
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+        }
+
+        .btn-remove:hover {
+            color: #b91c1c;
+        }
+
+        /* Painel Resumo Flutuante */
+        .summary-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--dark);
+            color: white;
+            padding: 18px 20px;
+            box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .summary-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .progress-bar-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            height: 12px;
+            width: 100%;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-bar-fill {
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        @media (min-width: 768px) {
+            .summary-grid {
+                grid-template-columns: repeat(5, 1fr);
+            }
+        }
+
+        .summary-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 14px;
+            border-radius: 8px;
+            border-left: 4px solid #94a3b8;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .summary-card.card-Obrigatória { border-left-color: #3b82f6; }
+        .summary-card.card-Optativa { border-left-color: #f59e0b; }
+        .summary-card.card-Estágio { border-left-color: #10b981; }
+        .summary-card.card-TCC { border-left-color: #8b5cf6; }
+        .summary-card.card-Graduation { border-left-color: #ec4899; background: rgba(236, 72, 153, 0.1); }
+
+        .summary-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .summary-card-label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            color: #94a3b8;
+            font-weight: 700;
+        }
+
+        .summary-card-hours {
+            font-size: 0.82rem;
+            color: #e2e8f0;
+        }
+
+        .summary-card-value {
+            font-size: 1.02rem;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+
+        .summary-card-value.done {
+            color: #34d399;
+        }
+
+        .total-header-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>Montador de Grade e Previsão de Formatura</h1>
+            <p class="subtitle">Arquivologia UNIRIO • Suporte a 12 Períodos com Validação de Dias e Estimativa de Conclusão</p>
+        </header>
+
+        <div class="controls-bar">
+            <div class="date-picker-group">
+                <label for="start-year">Início do 1º Período:</label>
+                <select id="start-year" onchange="updateSemesterDates()"></select>
+                <select id="start-sem" onchange="updateSemesterDates()">
+                    <option value="1">1º Semestre (.1)</option>
+                    <option value="2">2º Semestre (.2)</option>
+                </select>
+            </div>
+
+            <button class="btn-clear" onclick="clearAllSelections()">Limpar Grade</button>
+        </div>
+
+        <div id="periods-container"></div>
+    </div>
+
+    <div class="summary-panel">
+        <div class="summary-container">
+            <div class="total-header-info">
+                <span>PROGRESSO GERAL DO CURSO: <strong id="total-progress-text" style="color: white;">0h / 2220h (0%)</strong></span>
+                <span>FALTAM NO TOTAL: <strong id="total-remaining-text" style="color: #facc15;">2220 horas</strong></span>
+            </div>
+
+            <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="progress-bar"></div>
+            </div>
+
+            <div class="summary-grid">
+                <div class="summary-card card-Obrigatória">
+                    <div class="summary-card-header">
+                        <span class="summary-card-label">Obrigatórias</span>
+                        <span class="summary-card-hours"><span id="done-obr">0</span>/840h</span>
+                    </div>
+                    <div class="summary-card-value" id="rem-obr">Faltam: 840h</div>
+                </div>
+
+                <div class="summary-card card-Optativa">
+                    <div class="summary-card-header">
+                        <span class="summary-card-label">Optativas</span>
+                        <span class="summary-card-hours"><span id="done-opt">0</span>/840h</span>
+                    </div>
+                    <div class="summary-card-value" id="rem-opt">Faltam: 840h</div>
+                </div>
+
+                <div class="summary-card card-Estágio">
+                    <div class="summary-card-header">
+                        <span class="summary-card-label">Estágios</span>
+                        <span class="summary-card-hours"><span id="done-est">0</span>/360h</span>
+                    </div>
+                    <div class="summary-card-value" id="rem-est">Faltam: 360h</div>
+                </div>
+
+                <div class="summary-card card-TCC">
+                    <div class="summary-card-header">
+                        <span class="summary-card-label">TCC</span>
+                        <span class="summary-card-hours"><span id="done-tcc">0</span>/180h</span>
+                    </div>
+                    <div class="summary-card-value" id="rem-tcc">Faltam: 180h</div>
+                </div>
+
+                <div class="summary-card card-Graduation">
+                    <div class="summary-card-header">
+                        <span class="summary-card-label" style="color: #f472b6;">PREVISÃO FORMATURA</span>
+                        <span class="summary-card-hours" id="grad-period-badge">Pendente</span>
+                    </div>
+                    <div class="summary-card-value" id="grad-date-text" style="color: #f472b6;">--/----</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const METAS = { "Obrigatória": 840, "Optativa": 840, "Estágio": 360, "TCC": 180 };
+        const TOTAL_CURSO = 2220;
+        const MAX_PERIODOS = 12;
+
+        const DAYS = [
+            { key: "SEG", label: "Segunda-feira" },
+            { key: "TER", label: "Terça-feira" },
+            { key: "QUA", label: "Quarta-feira" },
+            { key: "QUI", label: "Quinta-feira" },
+            { key: "SEX", label: "Sexta-feira" },
+            { key: "FORA", label: "Fora da Grade" }
+        ];
+
+        // Banco de Dados das Disciplinas
+        const database = [
+            // 1º Período
+            { id: "HEA0028", name: "Introdução à Arquivologia", category: "Obrigatória", hours: 60, day: "SEG" },
+            { id: "HEA0039", name: "Construção do Pensamento Arquivístico", category: "Obrigatória", hours: 60, day: "TER" },
+            { id: "HFC0082", name: "Metodologia Científica", category: "Optativa", hours: 60, day: "QUI" },
+            { id: "HFC0066", name: "Introdução à Sociologia", category: "Optativa", hours: 60, day: "SEX" },
+            { id: "HH10053", name: "Cultura Histórica e Documento", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HTD0051", name: "Expressão Oral e Escrita", category: "Optativa", hours: 60, day: "TER" },
+            { id: "TUT0013", name: "Tutoria Português II", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "TUT0014", name: "Tutoria Português III", category: "Optativa", hours: 60, day: "FORA" },
+
+            // 2º Período
+            { id: "HEA0029", name: "Gestão da Informação Arquivística", category: "Obrigatória", hours: 60, day: "QUI" },
+            { id: "HEA0055", name: "Metodologia da Pesquisa Arquivística", category: "Obrigatória", hours: 60, day: "SEX" },
+            { id: "HFC0206", name: "Gestão de Processos", category: "Optativa", hours: 60, day: "QUA" },
+            { id: "HEA0030", name: "Ética Profissional Arquivística", category: "Optativa", hours: 30, day: "FORA" },
+            { id: "HEB0038", name: "Teoria da Classificação", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HFC0067", name: "Antropologia Cultural", category: "Optativa", hours: 60, day: "SEG" },
+            { id: "HTD0052", name: "Leitura e Produção de Texto", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEA0015", name: "Usos e Usuários da Informação Arquivística", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEA0016", name: "Arquivologia e Ciência da Informação", category: "Optativa", hours: 60, day: "TER" },
+            { id: "HTD0035", name: "Análise da Informação", category: "Optativa", hours: 60, day: "QUA" },
+            { id: "HEB0075", name: "Gestão Estratégica da Informação e do Conhecimento", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HTD0031", name: "Técnicas de Recuperação e Disseminação da Informação", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HF10006", name: "Teoria do Conhecimento", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HTD0002", name: "Introdução à Linguística", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HTD0017", name: "Organização de Conceitos em Linguagens Documentárias", category: "Optativa", hours: 60, day: "TER" },
+            { id: "HEB0016", name: "Organização do Conhecimento I", category: "Optativa", hours: 60, day: "QUA" },
+            { id: "HEB0017", name: "Organização do Conhecimento II", category: "Optativa", hours: 60, day: "SEX" },
+            { id: "HTD0009", name: "Tecnologia da Informação e Processos de Automação", category: "Optativa", hours: 60, day: "QUI" },
+            { id: "HFE0001", name: "Desenvolvimento das Relações Interpessoais", category: "Optativa", hours: 30, day: "FORA" },
+            { id: "JFJ0032", name: "Direitos Autorais", category: "Optativa", hours: 30, day: "FORA" },
+            { id: "HF10050", name: "Filosofia e Informação na Contemporaneidade", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "TIN0001", name: "Introdução à Ciência da Computação", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEM0137", name: "Acondicionamento de Acervos", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HF10004", name: "Lógica", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HTD0046", name: "Introdução à Ciência da Informação", category: "Optativa", hours: 60, day: "TER" },
+            { id: "HH10039", name: "Memória, Cultura e Sociedade", category: "Optativa", hours: 60, day: "QUA" },
+            { id: "SER0012", name: "Educação Ambiental e Cidadania", category: "Optativa", hours: 45, day: "FORA" },
+            { id: "HD10142", name: "Língua Brasileira de Sinais", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HD10164", name: "Culturas Afro-Brasileiras em Sala de Aula", category: "Optativa", hours: 30, day: "FORA" },
+
+            // 3º Período
+            { id: "HEA0031", name: "Classificação de Documentos Arquivísticos", category: "Obrigatória", hours: 60, day: "TER" },
+            { id: "HEA0032", name: "Avaliação de Documentos Arquivísticos", category: "Obrigatória", hours: 60, day: "QUA" },
+            { id: "HEA0034", name: "Seminário de Arquivística I", category: "Optativa", hours: 30, day: "QUI" },
+            { id: "HEA0035", name: "Tópicos Especiais", category: "Optativa", hours: 30, day: "FORA" },
+            { id: "HEA0033", name: "Redes e Sistemas de Informação Arquivística", category: "Optativa", hours: 30, day: "FORA" },
+            { id: "HFC0048", name: "Administração I", category: "Optativa", hours: 60, day: "QUA" },
+            { id: "HF10039", name: "Epistemologia", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HTD0054", name: "Informação, Memória e Documento", category: "Optativa", hours: 60, day: "TER" },
+
+            // 4º Período
+            { id: "HEA0036", name: "Arranjo e Descrição de Documentos", category: "Obrigatória", hours: 60, day: "SEG" },
+            { id: "HEA0008", name: "Diplomática", category: "Obrigatória", hours: 60, day: "TER" },
+            { id: "HEA0037", name: "Conservação Preventiva de Documentos", category: "Obrigatória", hours: 60, day: "QUI" },
+            { id: "HTD0003", name: "Estatística Aplicada a Processos Técnicos Documentais", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HF10018", name: "Filosofia da Cultura", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEA0058", name: "Arquivos Médicos", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HFC0049", name: "Administração II", category: "Optativa", hours: 60, day: "QUI" },
+            { id: "HTD0055", name: "Tecnologia de Reprodução e Armazenamento de Documentos", category: "Optativa", hours: 60, day: "QUA" },
+            { id: "HEA0038", name: "Estágio Supervisionado I", category: "Estágio", hours: 120, day: "SEX" },
+
+            // 5º Período
+            { id: "HEA0042", name: "Pesquisa em Arquivística", category: "Obrigatória", hours: 60, day: "TER" },
+            { id: "HEA0005", name: "Arquivos Contábeis", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEA0025", name: "Paleografia", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEA0040", name: "Restauração de Documentos", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEA0044", name: "Informática Aplicada à Arquivística", category: "Optativa", hours: 60, day: "SEG" },
+            { id: "HEA0043", name: "Seminário de Arquivística II", category: "Optativa", hours: 30, day: "QUI" },
+            { id: "HTD0049", name: "Fundamentos de Inglês Instrumental", category: "Optativa", hours: 60, day: "SEX" },
+            { id: "HTD0058", name: "Teoria e Prática Discursiva na Esfera Acadêmica", category: "Optativa", hours: 60, day: "SEG" },
+            { id: "HH10135", name: "História do Brasil Contemporâneo", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEA0041", name: "Estágio Supervisionado II", category: "Estágio", hours: 120, day: "SEX" },
+
+            // 6º Período
+            { id: "HEA0056", name: "Gestão de Documentos Arquivísticos", category: "Obrigatória", hours: 60, day: "SEG" },
+            { id: "HEA0047", name: "Documentação Audiovisual e Digital", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEA0057", name: "Gestão Arquivística de Documentos Eletrônicos", category: "Optativa", hours: 60, day: "QUI" },
+            { id: "HFC0008", name: "Comunicação", category: "Optativa", hours: 60, day: "TER" },
+            { id: "HFE0066", name: "Educação Especial", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEA0046", name: "Estágio Supervisionado III", category: "Estágio", hours: 120, day: "SEX" },
+            { id: "HEA0045", name: "Trabalho de Conclusão de Curso I", category: "TCC", hours: 90, day: "QUA" },
+
+            // 7º Período
+            { id: "HEA0049", name: "Organização Prática de Arquivos", category: "Obrigatória", hours: 120, day: "TER" },
+            { id: "HEA0017", name: "Gestão de Serviços Arquivísticos", category: "Obrigatória", hours: 60, day: "QUI" },
+            { id: "HEA0050", name: "Legislação Arquivística", category: "Optativa", hours: 30, day: "FORA" },
+            { id: "HD10084", name: "Educação a Distância", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HFC0009", name: "Comunicação Técnica e Científica", category: "Optativa", hours: 60, day: "FORA" },
+            { id: "HEA0048", name: "Trabalho de Conclusão de Curso II", category: "TCC", hours: 90, day: "SEX" },
+
+            // 8º Período
+            { id: "HEA0052", name: "Gestão de Instituições Arquivísticas", category: "Optativa", hours: 60, day: "QUI" },
+            { id: "HEA0051", name: "Projetos Arquivísticos", category: "Optativa", hours: 30, day: "QUA" },
+            { id: "HEA0053", name: "Políticas de Acesso à Informação Arquivística", category: "Optativa", hours: 60, day: "SEX" },
+            { id: "HEA0054", name: "Seminário de Arquivística III", category: "Optativa", hours: 30, day: "FORA" }
+        ];
+
+        let periodAllocations = {};
+        for (let i = 1; i <= MAX_PERIODOS; i++) {
+            periodAllocations[i] = [];
+        }
+
+        function initYearOptions() {
+            const selectYear = document.getElementById('start-year');
+            const currentYear = new Date().getFullYear();
+            selectYear.innerHTML = "";
+            for (let y = currentYear - 6; y <= currentYear + 4; y++) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                if (y === currentYear) opt.selected = true;
+                selectYear.appendChild(opt);
+            }
+        }
+
+        function calculateSemesterInfo(startYear, startSem, periodNum) {
+            const totalSemesters = (startSem - 1) + (periodNum - 1);
+            const year = startYear + Math.floor(totalSemesters / 2);
+            const sem = (totalSemesters % 2) + 1;
+            const month = sem === 1 ? "Julho" : "Dezembro";
+            return {
+                year: year,
+                sem: sem,
+                month: month,
+                labelShort: `${year}.${sem}`,
+                labelFull: `${sem}º Semestre de ${year} (${month}/${year})`
+            };
+        }
+
+        function updateSemesterDates() {
+            const startYear = parseInt(document.getElementById('start-year').value) || 2024;
+            const startSem = parseInt(document.getElementById('start-sem').value) || 1;
+
+            for (let p = 1; p <= MAX_PERIODOS; p++) {
+                const info = calculateSemesterInfo(startYear, startSem, p);
+                const badgeEl = document.getElementById(`period-date-badge-${p}`);
+                if (badgeEl) {
+                    badgeEl.innerText = `${info.labelShort} (${info.month}/${info.year})`;
+                }
+            }
+            updateCalculations();
+        }
+
+        function initApp() {
+            initYearOptions();
+            renderPeriodsStructure();
+            updateAllDropdowns();
+            updateSemesterDates();
+        }
+
+        function renderPeriodsStructure() {
+            const container = document.getElementById('periods-container');
+            container.innerHTML = "";
+
+            for (let p = 1; p <= MAX_PERIODOS; p++) {
+                const periodCard = document.createElement('div');
+                periodCard.className = 'period-card';
+                periodCard.innerHTML = `
+                    <div class="period-header">
+                        <div>
+                            <span>${p}º Período Cursado</span>
+                            <span class="period-date-badge" id="period-date-badge-${p}">--.--</span>
+                        </div>
+                        <span class="period-hours-badge" id="period-badge-${p}">0h acumuladas</span>
+                    </div>
+                    <div class="period-body">
+                        <div class="select-box-container">
+                            <select id="select-period-${p}">
+                                <option value="">-- Selecione uma disciplina para este período --</option>
+                            </select>
+                            <button class="btn-add" onclick="addCourseToPeriod(${p})">Adicionar</button>
+                        </div>
+                        
+                        <div class="week-grid">
+                            ${DAYS.map(day => `
+                                <div class="day-slot ${day.key === 'FORA' ? 'day-slot-extra' : ''}">
+                                    <div class="day-header">${day.label}</div>
+                                    <div id="period-${p}-day-${day.key}" style="flex-grow:1; display:flex; flex-direction:column;">
+                                        <p class="empty-day-msg">Livre</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(periodCard);
+            }
+        }
+
+        function getAllSelectedCourseIds() {
+            let all = [];
+            Object.values(periodAllocations).forEach(arr => all.push(...arr));
+            return new Set(all);
+        }
+
+        function updateAllDropdowns() {
+            const selectedIds = getAllSelectedCourseIds();
+            const sortedDatabase = [...database].sort((a, b) => a.name.localeCompare(b.name));
+
+            for (let p = 1; p <= MAX_PERIODOS; p++) {
+                const selectEl = document.getElementById(`select-period-${p}`);
+                const currentValue = selectEl.value;
+
+                selectEl.innerHTML = `<option value="">-- Selecione uma disciplina para este período --</option>`;
+
+                sortedDatabase.forEach(course => {
+                    if (!selectedIds.has(course.id)) {
+                        const opt = document.createElement('option');
+                        opt.value = course.id;
+                        const dayLabel = course.day === "FORA" ? "Fora da Grade" : course.day;
+                        opt.textContent = `${course.name} [${course.id}] (${course.hours}h) - ${course.category} | Dia: ${dayLabel}`;
+                        selectEl.appendChild(opt);
+                    }
+                });
+
+                selectEl.value = currentValue;
+            }
+        }
+
+        function addCourseToPeriod(periodNumber) {
+            const selectEl = document.getElementById(`select-period-${periodNumber}`);
+            const courseId = selectEl.value;
+
+            if (!courseId) return;
+
+            const courseToAdd = database.find(c => c.id === courseId);
+            if (!courseToAdd) return;
+
+            // VALIDAÇÃO: Bloqueia matérias no mesmo dia no mesmo período
+            if (courseToAdd.day && courseToAdd.day !== "FORA") {
+                const currentPeriodCourses = periodAllocations[periodNumber].map(id => database.find(c => c.id === id));
+                const conflictingCourse = currentPeriodCourses.find(c => c && c.day === courseToAdd.day);
+
+                if (conflictingCourse) {
+                    const dayObj = DAYS.find(d => d.key === courseToAdd.day);
+                    alert(`⚠️ CONFLITO DE HORÁRIO!\n\nVocê já adicionou "${conflictingCourse.name}" no dia de ${dayObj.label} neste período.\n\nCada dia da semana pode ter no máximo 1 disciplina.`);
+                    return;
+                }
+            }
+
+            periodAllocations[periodNumber].push(courseId);
+            selectEl.value = "";
+
+            renderPeriodCourses(periodNumber);
+            updateAllDropdowns();
+            updateCalculations();
+        }
+
+        function removeCourseFromPeriod(periodNumber, courseId) {
+            periodAllocations[periodNumber] = periodAllocations[periodNumber].filter(id => id !== courseId);
+            renderPeriodCourses(periodNumber);
+            updateAllDropdowns();
+            updateCalculations();
+        }
+
+        function renderPeriodCourses(periodNumber) {
+            DAYS.forEach(day => {
+                const container = document.getElementById(`period-${periodNumber}-day-${day.key}`);
+                if (container) {
+                    container.innerHTML = `<p class="empty-day-msg">Livre</p>`;
+                }
+            });
+
+            const courseIds = periodAllocations[periodNumber];
+
+            courseIds.forEach(id => {
+                const course = database.find(c => c.id === id);
+                if (course) {
+                    const dayKey = course.day || "FORA";
+                    const container = document.getElementById(`period-${periodNumber}-day-${dayKey}`);
+                    
+                    if (container) {
+                        if (container.querySelector('.empty-day-msg')) {
+                            container.innerHTML = "";
+                        }
+
+                        const card = document.createElement('div');
+                        card.className = 'day-course-card';
+                        card.innerHTML = `
+                            <div class="day-course-title">${course.name}</div>
+                            <div class="day-course-meta">Cód: ${course.id} • ${course.hours}h</div>
+                            <div class="day-course-footer">
+                                <span class="badge-cat cat-${course.category}">${course.category}</span>
+                                <button class="btn-remove" title="Remover" onclick="removeCourseFromPeriod(${periodNumber}, '${course.id}')">&times;</button>
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    }
+                }
+            });
+        }
+
+        function clearAllSelections() {
+            for (let p = 1; p <= MAX_PERIODOS; p++) {
+                periodAllocations[p] = [];
+                renderPeriodCourses(p);
+            }
+            updateAllDropdowns();
+            updateCalculations();
+        }
+
+        function updateCalculations() {
+            let done = { "Obrigatória": 0, "Optativa": 0, "Estágio": 0, "TCC": 0 };
+            let grandTotalDone = 0;
+            let lastActivePeriod = 0;
+
+            for (let p = 1; p <= MAX_PERIODOS; p++) {
+                let periodHours = 0;
+                periodAllocations[p].forEach(id => {
+                    const course = database.find(c => c.id === id);
+                    if (course) {
+                        done[course.category] += course.hours;
+                        periodHours += course.hours;
+                        grandTotalDone += course.hours;
+                    }
+                });
+
+                if (periodAllocations[p].length > 0) {
+                    lastActivePeriod = p;
+                }
+
+                const badgeEl = document.getElementById(`period-badge-${p}`);
+                if (badgeEl) {
+                    badgeEl.innerText = `${periodHours}h acumuladas`;
+                    badgeEl.style.backgroundColor = periodHours > 0 ? "rgba(16, 185, 129, 0.4)" : "rgba(255, 255, 255, 0.2)";
+                }
+            }
+
+            const percent = Math.min(100, Math.round((grandTotalDone / TOTAL_CURSO) * 100));
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+            document.getElementById('total-progress-text').innerText = `${grandTotalDone}h / ${TOTAL_CURSO}h (${percent}%)`;
+            
+            const totalRemaining = Math.max(0, TOTAL_CURSO - grandTotalDone);
+            document.getElementById('total-remaining-text').innerText = `${totalRemaining} horas`;
+
+            const updateCategoryCard = (cat, doneHours, suf) => {
+                const meta = METAS[cat];
+                const faltam = Math.max(0, meta - doneHours);
+
+                document.getElementById(`done-${suf}`).innerText = doneHours;
+                const remEl = document.getElementById(`rem-${suf}`);
+                
+                if (faltam === 0) {
+                    remEl.innerText = "CONCLUÍDO! ✅";
+                    remEl.classList.add("done");
+                } else {
+                    remEl.innerText = `Faltam: ${faltam}h`;
+                    remEl.classList.remove("done");
+                }
+            };
+
+            updateCategoryCard("Obrigatória", done["Obrigatória"], "obr");
+            updateCategoryCard("Optativa", done["Optativa"], "opt");
+            updateCategoryCard("Estágio", done["Estágio"], "est");
+            updateCategoryCard("TCC", done["TCC"], "tcc");
+
+            // CÁLCULO DA PREVISÃO DE FORMATURA
+            const startYear = parseInt(document.getElementById('start-year').value) || 2024;
+            const startSem = parseInt(document.getElementById('start-sem').value) || 1;
+            const gradBadge = document.getElementById('grad-period-badge');
+            const gradText = document.getElementById('grad-date-text');
+
+            if (lastActivePeriod > 0) {
+                const gradInfo = calculateSemesterInfo(startYear, startSem, lastActivePeriod);
+                gradBadge.innerText = `${lastActivePeriod}º Período`;
+                gradText.innerText = `${gradInfo.sem}º Sem/${gradInfo.year} (${gradInfo.month})`;
+            } else {
+                // Caso ainda não tenha inserido nada, estima pelo tempo padrão de 8 períodos
+                const defaultGradInfo = calculateSemesterInfo(startYear, startSem, 8);
+                gradBadge.innerText = `Estimado (8º P)`;
+                gradText.innerText = `${defaultGradInfo.sem}º Sem/${defaultGradInfo.year} (${defaultGradInfo.month})`;
+            }
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
