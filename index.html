@@ -22,7 +22,7 @@
             color: var(--dark);
             margin: 0;
             padding: 20px;
-            padding-bottom: 250px; /* Espaço ajustado para o painel de resumo estendido */
+            padding-bottom: 250px;
             line-height: 1.5;
         }
 
@@ -54,7 +54,6 @@
             margin: 0;
         }
 
-        /* Barra de Controles e Configuração de Data */
         .controls-bar {
             display: flex;
             flex-wrap: wrap;
@@ -106,7 +105,6 @@
             background-color: #dc2626;
         }
 
-        /* Estrutura dos Períodos */
         .period-card {
             background: #ffffff;
             border: 1px solid var(--border);
@@ -149,7 +147,6 @@
             padding: 15px 20px;
         }
 
-        /* Formulário de Seleção */
         .select-box-container {
             display: flex;
             gap: 10px;
@@ -186,7 +183,6 @@
             background-color: #1d4ed8;
         }
 
-        /* Quadro de Horários Semanal */
         .week-grid {
             display: grid;
             grid-template-columns: repeat(1, 1fr);
@@ -245,7 +241,6 @@
             font-style: italic;
         }
 
-        /* Card de Disciplina dentro do Dia */
         .day-course-card {
             background: #ffffff;
             border: 1px solid #cbd5e1;
@@ -308,7 +303,6 @@
             color: #b91c1c;
         }
 
-        /* Painel Resumo Flutuante */
         .summary-panel {
             position: fixed;
             bottom: 0;
@@ -415,7 +409,7 @@
     <div class="container">
         <header>
             <h1>Montador de Grade e Previsão de Formatura</h1>
-            <p class="subtitle">Arquivologia UNIRIO • Suporte a 12 Períodos com Validação de Dias e Estimativa de Conclusão</p>
+            <p class="subtitle">Arquivologia UNIRIO • Suporte a 12 Períodos com Validação de Dias e Armazenamento Local</p>
         </header>
 
         <div class="controls-bar">
@@ -503,7 +497,6 @@
             { key: "FORA", label: "Fora da Grade" }
         ];
 
-        // Banco de Dados das Disciplinas
         const database = [
             // 1º Período
             { id: "HEA0028", name: "Introdução à Arquivologia", category: "Obrigatória", hours: 60, day: "SEG" },
@@ -608,6 +601,34 @@
             periodAllocations[i] = [];
         }
 
+        // --- FUNÇÕES DE SALVAMENTO NO LOCALSTORAGE ---
+        function saveData() {
+            localStorage.setItem('unirio_period_allocations', JSON.stringify(periodAllocations));
+            localStorage.setItem('unirio_start_year', document.getElementById('start-year').value);
+            localStorage.setItem('unirio_start_sem', document.getElementById('start-sem').value);
+        }
+
+        function loadData() {
+            const savedAllocations = localStorage.getItem('unirio_period_allocations');
+            if (savedAllocations) {
+                try {
+                    periodAllocations = JSON.parse(savedAllocations);
+                } catch (e) {
+                    console.error("Erro ao carregar do localStorage", e);
+                }
+            }
+
+            const savedYear = localStorage.getItem('unirio_start_year');
+            if (savedYear) {
+                document.getElementById('start-year').value = savedYear;
+            }
+
+            const savedSem = localStorage.getItem('unirio_start_sem');
+            if (savedSem) {
+                document.getElementById('start-sem').value = savedSem;
+            }
+        }
+
         function initYearOptions() {
             const selectYear = document.getElementById('start-year');
             const currentYear = new Date().getFullYear();
@@ -647,11 +668,19 @@
                 }
             }
             updateCalculations();
+            saveData();
         }
 
         function initApp() {
             initYearOptions();
             renderPeriodsStructure();
+            loadData();
+            
+            // Renderiza disciplinas carregadas
+            for (let p = 1; p <= MAX_PERIODOS; p++) {
+                renderPeriodCourses(p);
+            }
+
             updateAllDropdowns();
             updateSemesterDates();
         }
@@ -734,7 +763,6 @@
             const courseToAdd = database.find(c => c.id === courseId);
             if (!courseToAdd) return;
 
-            // VALIDAÇÃO: Bloqueia matérias no mesmo dia no mesmo período
             if (courseToAdd.day && courseToAdd.day !== "FORA") {
                 const currentPeriodCourses = periodAllocations[periodNumber].map(id => database.find(c => c.id === id));
                 const conflictingCourse = currentPeriodCourses.find(c => c && c.day === courseToAdd.day);
@@ -752,6 +780,7 @@
             renderPeriodCourses(periodNumber);
             updateAllDropdowns();
             updateCalculations();
+            saveData();
         }
 
         function removeCourseFromPeriod(periodNumber, courseId) {
@@ -759,6 +788,7 @@
             renderPeriodCourses(periodNumber);
             updateAllDropdowns();
             updateCalculations();
+            saveData();
         }
 
         function renderPeriodCourses(periodNumber) {
@@ -769,7 +799,7 @@
                 }
             });
 
-            const courseIds = periodAllocations[periodNumber];
+            const courseIds = periodAllocations[periodNumber] || [];
 
             courseIds.forEach(id => {
                 const course = database.find(c => c.id === id);
@@ -799,12 +829,15 @@
         }
 
         function clearAllSelections() {
-            for (let p = 1; p <= MAX_PERIODOS; p++) {
-                periodAllocations[p] = [];
-                renderPeriodCourses(p);
+            if (confirm("Tem certeza que deseja limpar toda a sua grade montada?")) {
+                for (let p = 1; p <= MAX_PERIODOS; p++) {
+                    periodAllocations[p] = [];
+                    renderPeriodCourses(p);
+                }
+                localStorage.removeItem('unirio_period_allocations');
+                updateAllDropdowns();
+                updateCalculations();
             }
-            updateAllDropdowns();
-            updateCalculations();
         }
 
         function updateCalculations() {
@@ -814,7 +847,7 @@
 
             for (let p = 1; p <= MAX_PERIODOS; p++) {
                 let periodHours = 0;
-                periodAllocations[p].forEach(id => {
+                (periodAllocations[p] || []).forEach(id => {
                     const course = database.find(c => c.id === id);
                     if (course) {
                         done[course.category] += course.hours;
@@ -823,7 +856,7 @@
                     }
                 });
 
-                if (periodAllocations[p].length > 0) {
+                if (periodAllocations[p] && periodAllocations[p].length > 0) {
                     lastActivePeriod = p;
                 }
 
@@ -862,7 +895,6 @@
             updateCategoryCard("Estágio", done["Estágio"], "est");
             updateCategoryCard("TCC", done["TCC"], "tcc");
 
-            // CÁLCULO DA PREVISÃO DE FORMATURA
             const startYear = parseInt(document.getElementById('start-year').value) || 2024;
             const startSem = parseInt(document.getElementById('start-sem').value) || 1;
             const gradBadge = document.getElementById('grad-period-badge');
@@ -873,7 +905,6 @@
                 gradBadge.innerText = `${lastActivePeriod}º Período`;
                 gradText.innerText = `${gradInfo.sem}º Sem/${gradInfo.year} (${gradInfo.month})`;
             } else {
-                // Caso ainda não tenha inserido nada, estima pelo tempo padrão de 8 períodos
                 const defaultGradInfo = calculateSemesterInfo(startYear, startSem, 8);
                 gradBadge.innerText = `Estimado (8º P)`;
                 gradText.innerText = `${defaultGradInfo.sem}º Sem/${defaultGradInfo.year} (${defaultGradInfo.month})`;
