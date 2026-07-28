@@ -525,7 +525,7 @@
 </head>
 <body>
 
-    <!-- 1. TELA DE LOGIN (Visível por padrão até o Firebase verificar) -->
+    <!-- 1. TELA DE LOGIN -->
     <div id="login-screen">
         <div class="login-card">
             <h2>Montador de Grade</h2>
@@ -548,7 +548,7 @@
         </div>
     </div>
 
-    <!-- 2. TELA DO APLICATIVO PRINCIPAL (Oculta por padrão) -->
+    <!-- 2. TELA DO APLICATIVO PRINCIPAL -->
     <div id="app-screen" style="display: none;">
         <div class="container">
             
@@ -558,7 +558,7 @@
             </header>
 
             <div class="user-top-bar">
-                <span>Bem-vindo, <span id="user-email-display"></span></span>
+                <span>Bem-vindo, <span id="user-name-display"></span></span>
                 <button id="btn-logout" class="btn-clear" style="padding: 5px 12px; font-size: 0.85rem;">Sair</button>
             </div>
 
@@ -780,7 +780,7 @@
         const appScreen = document.getElementById('app-screen');
         const emailInput = document.getElementById('email-input');
         const passwordInput = document.getElementById('password-input');
-        const userEmailDisplay = document.getElementById('user-email-display');
+        const userNameDisplay = document.getElementById('user-name-display');
 
         // Eventos de Autenticação
         document.getElementById('btn-register').addEventListener('click', async () => {
@@ -811,7 +811,12 @@
                 currentUser = user;
                 loginScreen.style.display = 'none';
                 appScreen.style.display = 'block';
-                userEmailDisplay.textContent = user.email;
+                
+                // Exibe o nome completo no menu superior
+                if(userNameDisplay) {
+                    userNameDisplay.textContent = "Rafael do N. Vieira";
+                }
+                
                 loadData(); 
             } else {
                 currentUser = null;
@@ -910,6 +915,25 @@
             updateSemesterDates();
         }
 
+        // Monitora seleção de matérias para exibir o combo de dias se for Fora da Grade
+        function handleCourseSelection(p) {
+            const selectEl = document.getElementById(`select-period-${p}`);
+            const dayEl = document.getElementById(`select-day-${p}`);
+            const courseId = selectEl.value;
+            
+            if (!courseId) {
+                dayEl.style.display = 'none';
+                return;
+            }
+            
+            const course = database.find(c => c.id === courseId);
+            if (course && course.day === "FORA") {
+                dayEl.style.display = 'inline-block';
+            } else {
+                dayEl.style.display = 'none';
+            }
+        }
+
         function renderPeriodsStructure() {
             const container = document.getElementById('periods-container');
             container.innerHTML = "";
@@ -927,9 +951,19 @@
                     </div>
                     <div class="period-body">
                         <div class="select-box-container">
-                            <select id="select-period-${p}">
+                            <select id="select-period-${p}" onchange="handleCourseSelection(${p})">
                                 <option value="">-- Selecione uma disciplina para este período --</option>
                             </select>
+                            
+                            <select id="select-day-${p}" style="display: none; max-width: 150px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background-color: #fff;">
+                                <option value="SEG">Segunda</option>
+                                <option value="TER">Terça</option>
+                                <option value="QUA">Quarta</option>
+                                <option value="QUI">Quinta</option>
+                                <option value="SEX">Sexta</option>
+                                <option value="FORA">Manter Livre</option>
+                            </select>
+
                             <button class="btn-add" onclick="addCourseToPeriod(${p})">Adicionar</button>
                         </div>
                         <div class="week-grid">
@@ -950,7 +984,11 @@
 
         function getAllSelectedCourseIds() {
             let all = [];
-            Object.values(periodAllocations).forEach(arr => all.push(...arr));
+            Object.values(periodAllocations).forEach(arr => {
+                arr.forEach(item => {
+                    all.push(typeof item === 'string' ? item : item.id);
+                });
+            });
             return new Set(all);
         }
 
@@ -980,24 +1018,43 @@
             if (!currentUser) return alert("Você precisa fazer login para editar e salvar a grade.");
             
             const selectEl = document.getElementById(`select-period-${periodNumber}`);
+            const dayEl = document.getElementById(`select-day-${periodNumber}`);
             const courseId = selectEl.value;
+            
             if (!courseId) return;
 
             const courseToAdd = database.find(c => c.id === courseId);
             if (!courseToAdd) return;
 
-            if (courseToAdd.day && courseToAdd.day !== "FORA") {
-                const currentPeriodCourses = periodAllocations[periodNumber].map(id => database.find(c => c.id === id));
-                const conflictingCourse = currentPeriodCourses.find(c => c && c.day === courseToAdd.day);
-
-                if (conflictingCourse) {
-                    const dayObj = DAYS.find(d => d.key === courseToAdd.day);
-                    return alert(`⚠️ CONFLITO DE HORÁRIO!\n\nVocê já adicionou "${conflictingCourse.name}" no dia de ${dayObj.label} neste período.`);
-                }
+            // Determinar o dia da matéria. Se for "FORA", puxa a escolha do usuário.
+            let assignedDay = courseToAdd.day;
+            if (assignedDay === "FORA") {
+                assignedDay = dayEl.value;
             }
 
-            periodAllocations[periodNumber].push(courseId);
+            // Verifica conflitos considerando o dia escolhido (desde que não seja um encaixe livre/FORA)
+            const currentPeriodCourses = (periodAllocations[periodNumber] || []).map(item => {
+                const id = typeof item === 'string' ? item : item.id;
+                const customDay = typeof item === 'string' ? null : item.customDay;
+                const c = database.find(dbC => dbC.id === id);
+                return { ...c, assignedDay: customDay || c.day };
+            });
+
+            const conflictingCourse = currentPeriodCourses.find(c => c && c.assignedDay === assignedDay && assignedDay !== "FORA");
+
+            if (conflictingCourse) {
+                const dayObj = DAYS.find(d => d.key === assignedDay);
+                return alert(`⚠️ CONFLITO DE HORÁRIO!\n\nVocê já adicionou "${conflictingCourse.name}" no dia de ${dayObj.label} neste período.`);
+            }
+
+            // Salva um objeto contendo o ID e o dia customizado
+            periodAllocations[periodNumber].push({ 
+                id: courseId, 
+                customDay: courseToAdd.day === "FORA" ? dayEl.value : null 
+            });
+            
             selectEl.value = "";
+            dayEl.style.display = 'none';
 
             renderPeriodCourses(periodNumber);
             updateAllDropdowns();
@@ -1006,7 +1063,10 @@
         }
 
         function removeCourseFromPeriod(periodNumber, courseId) {
-            periodAllocations[periodNumber] = periodAllocations[periodNumber].filter(id => id !== courseId);
+            periodAllocations[periodNumber] = (periodAllocations[periodNumber] || []).filter(item => {
+                const id = typeof item === 'string' ? item : item.id;
+                return id !== courseId;
+            });
             renderPeriodCourses(periodNumber);
             updateAllDropdowns();
             updateCalculations();
@@ -1019,12 +1079,16 @@
                 if (container) container.innerHTML = `<p class="empty-day-msg">Livre</p>`;
             });
 
-            const courseIds = periodAllocations[periodNumber] || [];
+            const coursesInPeriod = periodAllocations[periodNumber] || [];
 
-            courseIds.forEach(id => {
+            coursesInPeriod.forEach(item => {
+                const id = typeof item === 'string' ? item : item.id;
+                const customDay = typeof item === 'string' ? null : item.customDay;
                 const course = database.find(c => c.id === id);
+                
                 if (course) {
-                    const dayKey = course.day || "FORA";
+                    // Usa o dia customizado caso exista, senão usa o padrão do banco
+                    const dayKey = customDay || course.day || "FORA";
                     const container = document.getElementById(`period-${periodNumber}-day-${dayKey}`);
                     
                     if (container) {
@@ -1066,7 +1130,8 @@
 
             for (let p = 1; p <= MAX_PERIODOS; p++) {
                 let periodHours = 0;
-                (periodAllocations[p] || []).forEach(id => {
+                (periodAllocations[p] || []).forEach(item => {
+                    const id = typeof item === 'string' ? item : item.id;
                     const course = database.find(c => c.id === id);
                     if (course) {
                         done[course.category] += course.hours;
@@ -1133,6 +1198,7 @@
         window.clearAllSelections = clearAllSelections;
         window.addCourseToPeriod = addCourseToPeriod;
         window.removeCourseFromPeriod = removeCourseFromPeriod;
+        window.handleCourseSelection = handleCourseSelection;
 
         // Inicializa a estrutura visual da aplicação
         document.addEventListener('DOMContentLoaded', initApp);
