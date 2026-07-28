@@ -412,6 +412,20 @@
             <p class="subtitle">Arquivologia UNIRIO</p>
         </header>
 
+        <!-- Painel de Login Firebase -->
+        <div class="controls-bar" id="auth-panel">
+            <div id="login-fields" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; width: 100%;">
+                <input type="email" id="email-input" placeholder="Seu e-mail" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border); flex-grow: 1; max-width: 250px;">
+                <input type="password" id="password-input" placeholder="Sua senha" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border); flex-grow: 1; max-width: 250px;">
+                <button id="btn-login" class="btn-add">Entrar</button>
+                <button id="btn-register" class="btn-add" style="background-color: var(--secondary);">Cadastrar</button>
+            </div>
+            <div id="user-info-panel" style="display: none; align-items: center; justify-content: space-between; width: 100%;">
+                <span style="font-weight: 600; color: var(--primary);">👤 <span id="user-email-display"></span></span>
+                <button id="btn-logout" class="btn-clear">Sair da Conta</button>
+            </div>
+        </div>
+
         <div class="controls-bar">
             <div class="date-picker-group">
                 <label for="start-year">Início do 1º Período:</label>
@@ -483,7 +497,32 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // Importando os módulos do Firebase via CDN
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
+
+        // Suas credenciais reais do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDU1-Rs0MUP430RzavsLJLGtCfEVQkHer4",
+            authDomain: "montadordegrade.firebaseapp.com",
+            projectId: "montadordegrade",
+            storageBucket: "montadordegrade.firebasestorage.app",
+            messagingSenderId: "11497734553",
+            appId: "1:11497734553:web:26287ecaa2b41617c2d308",
+            measurementId: "G-8XL1F5XR4K"
+        };
+
+        // Inicializando o Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const analytics = getAnalytics(app);
+
+        let currentUser = null;
+
         const METAS = { "Obrigatória": 840, "Optativa": 840, "Estágio": 360, "TCC": 180 };
         const TOTAL_CURSO = 2220;
         const MAX_PERIODOS = 12;
@@ -601,34 +640,95 @@
             periodAllocations[i] = [];
         }
 
-        // --- FUNÇÕES DE SALVAMENTO NO LOCALSTORAGE ---
-        function saveData() {
-            localStorage.setItem('unirio_period_allocations', JSON.stringify(periodAllocations));
-            localStorage.setItem('unirio_start_year', document.getElementById('start-year').value);
-            localStorage.setItem('unirio_start_sem', document.getElementById('start-sem').value);
+        // --- LÓGICA DE AUTENTICAÇÃO ---
+        const emailInput = document.getElementById('email-input');
+        const passwordInput = document.getElementById('password-input');
+        const loginFields = document.getElementById('login-fields');
+        const userInfoPanel = document.getElementById('user-info-panel');
+        const userEmailDisplay = document.getElementById('user-email-display');
+
+        document.getElementById('btn-register').addEventListener('click', async () => {
+            if (!emailInput.value || !passwordInput.value) return alert("Preencha e-mail e senha.");
+            try {
+                await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+                alert("Conta criada com sucesso! Bem-vindo.");
+            } catch (error) {
+                alert("Erro ao criar conta: " + error.message);
+            }
+        });
+
+        document.getElementById('btn-login').addEventListener('click', async () => {
+            if (!emailInput.value || !passwordInput.value) return alert("Preencha e-mail e senha.");
+            try {
+                await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+            } catch (error) {
+                alert("Erro ao entrar: E-mail ou senha incorretos.");
+            }
+        });
+
+        document.getElementById('btn-logout').addEventListener('click', async () => {
+            await signOut(auth);
+        });
+
+        // Monitora o estado de login do usuário
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                loginFields.style.display = 'none';
+                userInfoPanel.style.display = 'flex';
+                userEmailDisplay.textContent = user.email;
+                loadData(); // Carrega os dados do Firebase quando loga
+            } else {
+                currentUser = null;
+                loginFields.style.display = 'flex';
+                userInfoPanel.style.display = 'none';
+                
+                // Reseta a grade visualmente se deslogar
+                for (let p = 1; p <= MAX_PERIODOS; p++) periodAllocations[p] = [];
+                updateAllDropdowns();
+                for (let p = 1; p <= MAX_PERIODOS; p++) renderPeriodCourses(p);
+                updateCalculations();
+            }
+        });
+
+        // --- FUNÇÕES DE SALVAMENTO NO FIREBASE ---
+        async function saveData() {
+            if (!currentUser) return; // Só salva se o usuário estiver logado
+            try {
+                await setDoc(doc(db, "grades", currentUser.uid), {
+                    periodAllocations: periodAllocations,
+                    startYear: document.getElementById('start-year').value,
+                    startSem: document.getElementById('start-sem').value
+                });
+            } catch (e) {
+                console.error("Erro ao salvar no Firebase", e);
+            }
         }
 
-        function loadData() {
-            const savedAllocations = localStorage.getItem('unirio_period_allocations');
-            if (savedAllocations) {
-                try {
-                    periodAllocations = JSON.parse(savedAllocations);
-                } catch (e) {
-                    console.error("Erro ao carregar do localStorage", e);
+        async function loadData() {
+            if (!currentUser) return;
+            try {
+                const docSnap = await getDoc(doc(db, "grades", currentUser.uid));
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    periodAllocations = data.periodAllocations || periodAllocations;
+                    
+                    if (data.startYear) document.getElementById('start-year').value = data.startYear;
+                    if (data.startSem) document.getElementById('start-sem').value = data.startSem;
                 }
+            } catch (e) {
+                console.error("Erro ao carregar do Firebase", e);
             }
-
-            const savedYear = localStorage.getItem('unirio_start_year');
-            if (savedYear) {
-                document.getElementById('start-year').value = savedYear;
+            
+            // Re-renderiza a grade após carregar do banco
+            for (let p = 1; p <= MAX_PERIODOS; p++) {
+                renderPeriodCourses(p);
             }
-
-            const savedSem = localStorage.getItem('unirio_start_sem');
-            if (savedSem) {
-                document.getElementById('start-sem').value = savedSem;
-            }
+            updateAllDropdowns();
+            updateSemesterDates();
         }
 
+        // --- FUNÇÕES DA INTERFACE ORIGINAIS MANTIDAS ---
         function initYearOptions() {
             const selectYear = document.getElementById('start-year');
             const currentYear = new Date().getFullYear();
@@ -648,9 +748,7 @@
             const sem = (totalSemesters % 2) + 1;
             const month = sem === 1 ? "Julho" : "Dezembro";
             return {
-                year: year,
-                sem: sem,
-                month: month,
+                year: year, sem: sem, month: month,
                 labelShort: `${year}.${sem}`,
                 labelFull: `${sem}º Semestre de ${year} (${month}/${year})`
             };
@@ -663,24 +761,15 @@
             for (let p = 1; p <= MAX_PERIODOS; p++) {
                 const info = calculateSemesterInfo(startYear, startSem, p);
                 const badgeEl = document.getElementById(`period-date-badge-${p}`);
-                if (badgeEl) {
-                    badgeEl.innerText = `${info.labelShort} (${info.month}/${info.year})`;
-                }
+                if (badgeEl) badgeEl.innerText = `${info.labelShort} (${info.month}/${info.year})`;
             }
             updateCalculations();
-            saveData();
+            saveData(); // Agora salva no Firebase
         }
 
         function initApp() {
             initYearOptions();
             renderPeriodsStructure();
-            loadData();
-            
-            // Renderiza disciplinas carregadas
-            for (let p = 1; p <= MAX_PERIODOS; p++) {
-                renderPeriodCourses(p);
-            }
-
             updateAllDropdowns();
             updateSemesterDates();
         }
@@ -707,7 +796,6 @@
                             </select>
                             <button class="btn-add" onclick="addCourseToPeriod(${p})">Adicionar</button>
                         </div>
-                        
                         <div class="week-grid">
                             ${DAYS.map(day => `
                                 <div class="day-slot ${day.key === 'FORA' ? 'day-slot-extra' : ''}">
@@ -737,7 +825,6 @@
             for (let p = 1; p <= MAX_PERIODOS; p++) {
                 const selectEl = document.getElementById(`select-period-${p}`);
                 const currentValue = selectEl.value;
-
                 selectEl.innerHTML = `<option value="">-- Selecione uma disciplina para este período --</option>`;
 
                 sortedDatabase.forEach(course => {
@@ -749,15 +836,15 @@
                         selectEl.appendChild(opt);
                     }
                 });
-
                 selectEl.value = currentValue;
             }
         }
 
         function addCourseToPeriod(periodNumber) {
+            if (!currentUser) return alert("Você precisa fazer login para editar e salvar a grade.");
+            
             const selectEl = document.getElementById(`select-period-${periodNumber}`);
             const courseId = selectEl.value;
-
             if (!courseId) return;
 
             const courseToAdd = database.find(c => c.id === courseId);
@@ -769,8 +856,7 @@
 
                 if (conflictingCourse) {
                     const dayObj = DAYS.find(d => d.key === courseToAdd.day);
-                    alert(`⚠️ CONFLITO DE HORÁRIO!\n\nVocê já adicionou "${conflictingCourse.name}" no dia de ${dayObj.label} neste período.\n\nCada dia da semana pode ter no máximo 1 disciplina.`);
-                    return;
+                    return alert(`⚠️ CONFLITO DE HORÁRIO!\n\nVocê já adicionou "${conflictingCourse.name}" no dia de ${dayObj.label} neste período.`);
                 }
             }
 
@@ -794,9 +880,7 @@
         function renderPeriodCourses(periodNumber) {
             DAYS.forEach(day => {
                 const container = document.getElementById(`period-${periodNumber}-day-${day.key}`);
-                if (container) {
-                    container.innerHTML = `<p class="empty-day-msg">Livre</p>`;
-                }
+                if (container) container.innerHTML = `<p class="empty-day-msg">Livre</p>`;
             });
 
             const courseIds = periodAllocations[periodNumber] || [];
@@ -808,9 +892,7 @@
                     const container = document.getElementById(`period-${periodNumber}-day-${dayKey}`);
                     
                     if (container) {
-                        if (container.querySelector('.empty-day-msg')) {
-                            container.innerHTML = "";
-                        }
+                        if (container.querySelector('.empty-day-msg')) container.innerHTML = "";
 
                         const card = document.createElement('div');
                         card.className = 'day-course-card';
@@ -829,14 +911,15 @@
         }
 
         function clearAllSelections() {
+            if (!currentUser) return alert("Você precisa estar logado para alterar a grade.");
             if (confirm("Tem certeza que deseja limpar toda a sua grade montada?")) {
                 for (let p = 1; p <= MAX_PERIODOS; p++) {
                     periodAllocations[p] = [];
                     renderPeriodCourses(p);
                 }
-                localStorage.removeItem('unirio_period_allocations');
                 updateAllDropdowns();
                 updateCalculations();
+                saveData(); // Atualiza o Firebase limpando tudo
             }
         }
 
@@ -856,9 +939,7 @@
                     }
                 });
 
-                if (periodAllocations[p] && periodAllocations[p].length > 0) {
-                    lastActivePeriod = p;
-                }
+                if (periodAllocations[p] && periodAllocations[p].length > 0) lastActivePeriod = p;
 
                 const badgeEl = document.getElementById(`period-badge-${p}`);
                 if (badgeEl) {
@@ -911,7 +992,15 @@
             }
         }
 
-        window.onload = initApp;
+        // Exportando funções para o objeto window
+        window.updateSemesterDates = updateSemesterDates;
+        window.clearAllSelections = clearAllSelections;
+        window.addCourseToPeriod = addCourseToPeriod;
+        window.removeCourseFromPeriod = removeCourseFromPeriod;
+
+        // Inicializa a estrutura visual da aplicação
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
+``` Lembre-se de configurar as regras de leitura e gravação no console do Firestore, como indicado no passo anterior, para garantir a segurança dos dados.
