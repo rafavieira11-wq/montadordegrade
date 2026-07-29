@@ -600,4 +600,42 @@ select:focus {
     .summary-card-value {
         font-size: 0.9rem;
     }
+
+    /* Grade 3x2 para os dias da semana no celular */
+    .week-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 5px;
+    }
+
+    .day-slot {
+        padding: 5px;
+        min-height: 90px;
+    }
+
+    .day-header {
+        font-size: 0.65rem;
+        margin-bottom: 4px;
+    }
+
+    .day-course-card {
+        padding: 5px;
+        gap: 2px;
+    }
+
+    .day-course-title {
+        font-size: 0.7rem;
+    }
+
+    .day-course-meta {
+        font-size: 0.6rem;
+    }
+
+    .badge-cat {
+        font-size: 0.55rem;
+        padding: 2px 4px;
+    }
+
+    .btn-remove {
+        font-size: 0.9rem;
+    }
 }
